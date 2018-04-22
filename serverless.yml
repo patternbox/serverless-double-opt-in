@@ -1,0 +1,117 @@
+service: double-opt-in
+
+custom:
+  domain: patternbox.com
+  s3bucket: double-opt-in.${self:custom.domain}
+
+provider:
+  name: aws
+  runtime: nodejs8.10
+  region: eu-central-1
+  stage: dev
+
+  iamRoleStatements: # permissions for all of your functions can be set here
+    - Effect: Allow
+      Action:
+        #- ses:SendEmail
+        #- ses:SendRawEmail
+        #- ses:SendBulkTemplatedEmail
+        - ses:SendTemplatedEmail
+      Resource: "*"
+
+    - Effect: Allow
+      Action:
+        - s3:ListBucket
+      Resource:
+        - arn:aws:s3:::${self:custom.s3bucket}
+
+    - Effect: Allow
+      Action:
+        - s3:GetObject
+        - s3:PutObject
+        - s3:HeadObject
+        - s3:DeleteObject
+      Resource:
+        - arn:aws:s3:::${self:custom.s3bucket}/*
+
+    - Effect: Allow
+      Action:
+        - ssm:GetParameter
+        - ssm:GetParameters
+      Resource: 
+        - "*"
+        
+    - Effect: Allow
+      Action: # Gives permission to DynamoDB tables in a specific region
+        - dynamodb:DescribeTable
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+      Resource:
+        - arn:aws:dynamodb:${self:provider.region}:*:table/Email-DoubleOptIn
+
+  environment:
+    s3bucket: ${self:custom.s3bucket}
+    basePath: doi.${self:custom.domain}
+    emailSource: no-reply@${self:custom.domain}
+    ssmSecret: ${self:service}-secret
+
+package:
+  individually: false
+  include:
+    - "src/**"
+  exclude:
+    - "**"
+
+functions:
+  initiate:
+    handler: src/handler.initiate
+    name: ${self:service}-initiate
+    events:
+      - http:
+          path: initiateDoubleOptIn
+          method: post
+
+  confirm:
+    handler: src/handler.confirm
+    name: ${self:service}-confirm
+    events:
+      - http:
+          path: confirmDoubleOptIn/{userId}/{confirmToken}
+          method: get
+
+  revoke:
+    handler: src/handler.revoke
+    name: ${self:service}-revoke
+    events:
+      - http:
+          path: revokeDoubleOptIn/{userId}/{revokeToken}
+          method: get
+
+resources:
+  Resources:
+    ResourcesBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:custom.s3bucket}
+
+    TicketTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: Email-DoubleOptIn
+        AttributeDefinitions:
+          - AttributeName: userId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: userId
+            KeyType: HASH
+        TimeToLiveSpecification:
+          AttributeName: expirationTimeTTL
+          Enabled: true
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+

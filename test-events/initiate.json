@@ -1,0 +1,33 @@
+{
+   "resource": "/initiateDoubleOptIn",
+   "path": "/initiateDoubleOptIn",
+   "httpMethod": "POST",
+   "queryStringParameters": null,
+   "pathParameters": null,
+   "stageVariables": null,
+   "requestContext": {
+      "resourcePath": "/initiateDoubleOptIn",
+      "httpMethod": "POST",
+      "requestTime": "22/Apr/2018:09:37:13 +0000",
+      "path": "/dev/initiateDoubleOptIn",
+      "protocol": "HTTP/1.1",
+      "stage": "dev",
+      "requestTimeEpoch": 1524389833267,
+      "requestId": "bc9da89b-4610-11e8-abb1-f1a5d104054c",
+      "identity": {
+         "cognitoIdentityPoolId": null,
+         "accountId": null,
+         "cognitoIdentityId": null,
+         "caller": null,
+         "sourceIp": "188.103.199.253",
+         "accessKey": null,
+         "cognitoAuthenticationType": null,
+         "cognitoAuthenticationProvider": null,
+         "userArn": null,
+         "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.117 Safari/537.36",
+         "user": null
+      }
+   },
+   "body": "{ \"email\": \"twitter@patternbox.com\" }",
+   "isBase64Encoded": false
+}

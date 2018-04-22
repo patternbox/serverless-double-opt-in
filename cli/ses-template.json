@@ -1,0 +1,8 @@
+{
+   "Template": {
+      "TemplateName": "double-opt-in",
+      "SubjectPart": "Double Opt-in",
+      "HtmlPart": "<p>By clicking on this link, you confirm your registration for our newsletter:</p><p><a href='{{confirmationURL}}'>Confirmation Link</a></p>",
+      "TextPart": "By clicking on this link, you confirm your registration for our newsletter:\r\n{{confirmationURL}}."
+   }
+}
