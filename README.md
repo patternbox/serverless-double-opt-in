@@ -4,9 +4,9 @@ A Serverless double opt-in prototype that uses AWS Lambda and Amazon SES to send
 
 ### Requirements
 
-- [Configure your AWS CLI](https://serverless.com/framework/docs/providers/aws/guide/credentials/)
-- [Setting up Email with Amazon SES](https://docs.aws.amazon.com/ses/latest/DeveloperGuide/setting-up-email.html)
 - [Install the Serverless Framework](https://serverless.com/framework/docs/providers/aws/guide/installation/)
+- [Configure your AWS Credentials](https://serverless.com/framework/docs/providers/aws/guide/credentials/)
+- [Setting up Email with Amazon SES](https://docs.aws.amazon.com/ses/latest/DeveloperGuide/setting-up-email.html)
 
 ### Configuration
 
