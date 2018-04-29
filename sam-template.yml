@@ -1,31 +1,64 @@
+# To deploy for the first time, and for each update,
+# run both of the following commands in order:
+#
+# aws cloudformation package \
+# --template-file sam-template.yml \
+# --output-template-file sam-template-out.yml \
+# --s3-bucket <your-s3-bucket-name>
+#
+# aws cloudformation deploy \
+# --template-file <path-to-file/sam-template-out.yml> \
+# --stack-name double-opt-in \
+# --capabilities CAPABILITY_IAM
+
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: 'AWS::Serverless-2016-10-31'
 Description: 'SAM template for email double opt-in prototype'
 Resources:
-  ResourcesBucket:
-    Type: 'AWS::S3::Bucket'
+
+  DoubleOptIn:
+    Type: 'AWS::Serverless::Api'
     Properties:
-      BucketName: double-opt-in.patternbox.com
-  TicketTable:
-    Type: 'AWS::DynamoDB::Table'
-    Properties:
-      TableName: Email-DoubleOptIn
-      AttributeDefinitions:
-        - AttributeName: userId
-          AttributeType: S
-      KeySchema:
-        - AttributeName: userId
-          KeyType: HASH
-      TimeToLiveSpecification:
-        AttributeName: expirationTimeTTL
-        Enabled: true
-      ProvisionedThroughput:
-        ReadCapacityUnits: 1
-        WriteCapacityUnits: 1
+      StageName: dev
+      DefinitionBody:
+        swagger: '2.0'
+        info:
+          title:
+            Ref: 'AWS::StackName'
+        paths:
+          '/initiateDoubleOptIn':
+            post:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri:
+                  'Fn::Sub': >-
+                    arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DoubleOptInInitiate.Arn}/invocations
+              responses: {}
+          '/confirmDoubleOptIn/{userId}/{confirmToken}':
+            get:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri:
+                  'Fn::Sub': >-
+                    arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DoubleOptInConfirm.Arn}/invocations
+              responses: {}
+          '/revokeDoubleOptIn/{userId}/{revokeToken}':
+            get:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri:
+                  'Fn::Sub': >-
+                    arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DoubleOptInRevoke.Arn}/invocations
+              responses: {}
+
   DoubleOptInInitiate:
     Type: 'AWS::Serverless::Function'
     Properties:
       Handler: src/handler.initiate
+      FunctionName: double-opt-in-initiate
       Runtime: nodejs8.10
       CodeUri: >-
         /Users/dehms/Projects/sandbox-sls/sls-double-opt-in/.serverless/double-opt-in.zip
@@ -82,43 +115,7 @@ Resources:
             Method: post
             RestApiId:
               Ref: DoubleOptIn
-  DoubleOptIn:
-    Type: 'AWS::Serverless::Api'
-    Properties:
-      StageName: dev
-      DefinitionBody:
-        swagger: '2.0'
-        info:
-          title:
-            Ref: 'AWS::StackName'
-        paths:
-          /initiateDoubleOptIn:
-            post:
-              x-amazon-apigateway-integration:
-                httpMethod: POST
-                type: aws_proxy
-                uri:
-                  'Fn::Sub': >-
-                    arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DoubleOptInInitiate.Arn}/invocations
-              responses: {}
-          '/confirmDoubleOptIn/{userId}/{confirmToken}':
-            get:
-              x-amazon-apigateway-integration:
-                httpMethod: POST
-                type: aws_proxy
-                uri:
-                  'Fn::Sub': >-
-                    arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DoubleOptInConfirm.Arn}/invocations
-              responses: {}
-          '/revokeDoubleOptIn/{userId}/{revokeToken}':
-            get:
-              x-amazon-apigateway-integration:
-                httpMethod: POST
-                type: aws_proxy
-                uri:
-                  'Fn::Sub': >-
-                    arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DoubleOptInRevoke.Arn}/invocations
-              responses: {}
+
   DoubleOptInInitiateLambdaPermission:
     Type: 'AWS::Lambda::Permission'
     DependsOn:
@@ -128,10 +125,12 @@ Resources:
       FunctionName:
         Ref: DoubleOptInInitiate
       Principal: apigateway.amazonaws.com
+
   DoubleOptInConfirm:
     Type: 'AWS::Serverless::Function'
     Properties:
       Handler: src/handler.confirm
+      FunctionName: double-opt-in-confirm
       Runtime: nodejs8.10
       CodeUri: >-
         /Users/dehms/Projects/sandbox-sls/sls-double-opt-in/.serverless/double-opt-in.zip
@@ -188,6 +187,7 @@ Resources:
             Method: get
             RestApiId:
               Ref: DoubleOptIn
+
   DoubleOptInConfirmLambdaPermission:
     Type: 'AWS::Lambda::Permission'
     DependsOn:
@@ -197,10 +197,12 @@ Resources:
       FunctionName:
         Ref: DoubleOptInConfirm
       Principal: apigateway.amazonaws.com
+
   DoubleOptInRevoke:
     Type: 'AWS::Serverless::Function'
     Properties:
       Handler: src/handler.revoke
+      FunctionName: double-opt-in-revoke
       Runtime: nodejs8.10
       CodeUri: >-
         /Users/dehms/Projects/sandbox-sls/sls-double-opt-in/.serverless/double-opt-in.zip
@@ -257,6 +259,7 @@ Resources:
             Method: get
             RestApiId:
               Ref: DoubleOptIn
+
   DoubleOptInRevokeLambdaPermission:
     Type: 'AWS::Lambda::Permission'
     DependsOn:
@@ -266,3 +269,25 @@ Resources:
       FunctionName:
         Ref: DoubleOptInRevoke
       Principal: apigateway.amazonaws.com
+
+  ResourcesBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: double-opt-in.patternbox.com
+
+  TicketTable:
+    Type: 'AWS::DynamoDB::Table'
+    Properties:
+      TableName: Email-DoubleOptIn
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: expirationTimeTTL
+        Enabled: true
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
