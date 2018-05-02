@@ -55,7 +55,7 @@ async function writeAuditTrail(data, action) {
 
    const params = {
       Bucket: process.env.s3bucket,
-      Key: data.userId + '/' + timestamp + '-' + action + '.json',
+      Key: process.env.s3prefix + data.userId + '/' + timestamp + '-' + action + '.json',
       Body: JSON.stringify(data),
       ContentType: 'application/json',
    };
@@ -131,7 +131,7 @@ async function updateOptInRecord(data) {
    params.ExpressionAttributeValues = {
       ':active': true,
       ':ttl': Math.floor(Date.now() / 1000) + (ACTIVE_REC_TTL_DAYS * 24 * 60 * 60),
-      ':token': data.confirmToken
+      ':token': crypto.randomBytes(16).toString('hex')
    };
 
    try {

@@ -8,7 +8,9 @@
   },
   "devDependencies": {},
   "scripts": {
-    "test": "node_modules/.bin/mocha --reporter spec"
+    "test": "node_modules/.bin/mocha --reporter spec",
+    "predeploy": "git log -1 --pretty=format:'{ \"date\":\"%cI\", \"commit\":\"%H\" }' > git-commit.json && zip -r functions.zip . -i git-commit.json",
+    "copytoS3-lambda-functions": "npm run predeploy && zip -r functions.zip . -i \\*.js -i git-commit.json -i node_modules/\\* -x test/\\* -x node_modules/aws-sdk/\\* -x node_modules/mocha/\\* && echo Copying to S3... && aws s3 cp functions.zip s3://YOURBUCKETHERE/YOURPATHHERE/functions-doi-`git log -1 --pretty=format:'%H'`-`date -u \"+%Y%m%dT%H%M%S\"`.zip"
   },
   "keywords": [
     "Double opt-in"

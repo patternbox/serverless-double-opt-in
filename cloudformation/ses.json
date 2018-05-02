@@ -1,0 +1,41 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Metadata" : {
+    "ProposedStackName": "double-opt-in-ses",
+    "RequiredRegion": "eu-west-1",
+    "RequiredOrderForStackCreation": [ "role.json", "ses.json", "lambda.json" ]
+  },
+  "Parameters": {
+    "SESSubjectPart": {
+      "Type": "String",
+      "Default": "Double Opt-in"
+    },
+    "SESTextPart": {
+        "Type": "String",
+        "Default": "By clicking on this link, you confirm your registration for our newsletter:\r\n{{confirmationURL}}."
+    },
+    "SESHtmlPart": {
+        "Type": "String",
+        "Default": "<p>By clicking on this link, you confirm your registration for our newsletter:</p><p><a href='{{confirmationURL}}'>Confirmation Link</a></p>"
+    }
+  },
+  "Resources": {
+    "SESTemplate": {
+      "Type" : "AWS::SES::Template",
+      "Properties" : {
+        "Template" : {
+          "TemplateName": "double-opt-in",
+          "SubjectPart": {
+              "Ref": "SESSubjectPart"
+          },
+          "TextPart": {
+              "Ref": "SESTextPart"
+          },
+          "HtmlPart": {
+              "Ref": "SESHtmlPart"
+          }
+        }
+      }
+    }
+  }
+}

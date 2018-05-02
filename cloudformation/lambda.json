@@ -1,0 +1,262 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Metadata" : {
+    "ProposedStackName": "double-opt-in-lambda",
+    "RequiredOrderForStackCreation": [ "role.json", "ses.json", "lambda.json" ]
+  },
+  "Parameters": {
+    "AuditTrailS3BucketName": {
+      "Type": "String",
+      "Default": "",
+      "Description": "S3 bucket name for audit trail"
+    },
+    "AuditTrailS3Prefix": {
+      "Type": "String",
+      "Default": "trails/double-opt-in/",
+      "Description": "S3 prefix for audit trail"
+    },
+    "LambdaSourceBucket": {
+      "Type": "String",
+      "Default": "",
+      "Description": "Bucket for Lambda sources (see package.json)"
+    },
+    "LambdaSourcePrefix": {
+      "Type": "String",
+      "Default": "functions-doi-",
+      "Description": "Prefix for Lambda sources (see package.json)"
+    },
+    "LambdaSourceCommitSHA": {
+      "Type": "String",
+      "Default": "",
+      "Description": "Commit SHA of the Lambda functions (see package.json output)"
+    },
+    "LambdaFunctionNamePrefix": {
+      "Type": "String",
+      "Default": "double-opt-in-",
+      "Description": "Prefix for Lambda function names"
+    },
+    "LambdaRoleARN": {
+      "Type": "String",
+      "Default": "",
+      "Description": "Role ARN for the Lambda functions (see output of role.json stack)"
+    },
+    "HashSaltSSMParameterName": {
+      "Type": "String",
+      "Default": "double-opt-in-secret",
+      "Description": "SSM Parameter Name for the hash salt"
+    },
+    "HashSaltSSMParameterValue": {
+      "Type": "String",
+      "Description": "SSM Parameter value for the hash salt (DO NOT CHANGE ONCE THIS IS IN PRODUCTION)",
+      "NoEcho" : "true"
+    },
+    "DomainAndPathPrefix": {
+      "Type": "String",
+      "Default": "",
+      "Description": "Domain and path prefix for the confirmation link (no trailing /, eg. \"example.com/confirmation\")"
+    },
+    "SenderAddress": {
+      "Type": "String",
+      "Default": "",
+      "Description": "The email address used for sending mails"
+    }
+  },
+  "Resources": {
+    "HashSaltSSMParameter": {
+      "Type": "AWS::SSM::Parameter",
+      "Properties": {
+        "Name": { "Ref" : "HashSaltSSMParameterName" },
+        "Value": { "Ref" : "HashSaltSSMParameterValue" },
+        "Description": "Hash salt for the double opt in",
+        "Type": "String"
+      }
+    },
+    "InitiateLambdaFunction": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Code": {
+          "S3Bucket": { "Ref" : "LambdaSourceBucket" },
+          "S3Key": { "Fn::Join" : [ "", [ { "Ref" : "LambdaSourcePrefix" }, { "Ref" : "LambdaSourceCommitSHA" }, ".zip" ] ] }
+        },
+        "FunctionName": { "Fn::Join" : [ "", [ { "Ref" : "LambdaFunctionNamePrefix" }, "initiate" ] ] },
+        "Handler": "src/handler.initiate",
+        "MemorySize": 1024,
+        "Role": { "Ref" : "LambdaRoleARN" },
+        "Runtime": "nodejs8.10",
+        "Timeout": 6,
+        "Environment": {
+          "Variables": {
+            "s3bucket": { "Ref" : "AuditTrailS3BucketName" },
+            "s3prefix": { "Ref" : "AuditTrailS3Prefix" },
+            "basePath": { "Ref" : "DomainAndPathPrefix" },
+            "emailSource": { "Ref" : "SenderAddress" },
+            "ssmSecret": { "Ref" : "HashSaltSSMParameterName" }
+          }
+        }
+      }
+    },
+    "ConfirmLambdaFunction": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Code": {
+          "S3Bucket": { "Ref" : "LambdaSourceBucket" },
+          "S3Key": { "Fn::Join" : [ "", [ { "Ref" : "LambdaSourcePrefix" }, { "Ref" : "LambdaSourceCommitSHA" }, ".zip" ] ] }
+        },
+        "FunctionName": { "Fn::Join" : [ "", [ { "Ref" : "LambdaFunctionNamePrefix" }, "confirm" ] ] },
+        "Handler": "src/handler.confirm",
+        "MemorySize": 128,
+        "Role": { "Ref" : "LambdaRoleARN" },
+        "Runtime": "nodejs8.10",
+        "Timeout": 6,
+        "Environment": {
+          "Variables": {
+            "s3bucket": { "Ref" : "AuditTrailS3BucketName" },
+            "s3prefix": { "Ref" : "AuditTrailS3Prefix" },
+            "basePath": { "Ref" : "DomainAndPathPrefix" },
+            "emailSource": { "Ref" : "SenderAddress" },
+            "ssmSecret": { "Ref" : "HashSaltSSMParameterName" }
+          }
+        }
+      }
+    },
+    "RevokeLambdaFunction": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Code": {
+          "S3Bucket": { "Ref" : "LambdaSourceBucket" },
+          "S3Key": { "Fn::Join" : [ "", [ { "Ref" : "LambdaSourcePrefix" }, { "Ref" : "LambdaSourceCommitSHA" }, ".zip" ] ] }
+        },
+        "FunctionName": { "Fn::Join" : [ "", [ { "Ref" : "LambdaFunctionNamePrefix" }, "revoke" ] ] },
+        "Handler": "src/handler.revoke",
+        "MemorySize": 128,
+        "Role": { "Ref" : "LambdaRoleARN" },
+        "Runtime": "nodejs8.10",
+        "Timeout": 6,
+        "Environment": {
+          "Variables": {
+            "s3bucket": { "Ref" : "AuditTrailS3BucketName" },
+            "s3prefix": { "Ref" : "AuditTrailS3Prefix" },
+            "basePath": { "Ref" : "DomainAndPathPrefix" },
+            "emailSource": { "Ref" : "SenderAddress" },
+            "ssmSecret": { "Ref" : "HashSaltSSMParameterName" }
+          }
+        }
+      }
+    },
+    "ApiGatewayRestApi": {
+      "Type": "AWS::ApiGateway::RestApi",
+      "Properties": {
+        "Body": {
+          "swagger": "2.0",
+          "info": {
+            "version": "2018-05-02T12:44:47Z",
+            "title": "double-opt-in"
+          },
+          "paths": {
+            "/confirmDoubleOptIn/{userId}/{confirmToken}": {
+              "get": {
+                "responses": {},
+                "x-amazon-apigateway-integration": {
+                  "uri": { "Fn::Sub": [ "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${LambdaFunctionName}/invocations", { "LambdaFunctionName": { "Fn::Join" : [ "", [ { "Ref" : "LambdaFunctionNamePrefix" }, "confirm" ] ] } } ] },
+                  "passthroughBehavior": "when_no_match",
+                  "httpMethod": "POST",
+                  "type": "aws_proxy"
+                }
+              }
+            },
+            "/initiateDoubleOptIn": {
+              "post": {
+                "responses": {},
+                "x-amazon-apigateway-integration": {
+                  "uri": { "Fn::Sub": [ "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${LambdaFunctionName}/invocations", { "LambdaFunctionName": { "Fn::Join" : [ "", [ { "Ref" : "LambdaFunctionNamePrefix" }, "initiate" ] ] } } ] },
+                  "passthroughBehavior": "when_no_match",
+                  "httpMethod": "POST",
+                  "type": "aws_proxy"
+                }
+              }
+            },
+            "/revokeDoubleOptIn/{userId}/{revokeToken}": {
+              "get": {
+                "responses": {},
+                "x-amazon-apigateway-integration": {
+                  "uri": { "Fn::Sub": [ "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${LambdaFunctionName}/invocations", { "LambdaFunctionName": { "Fn::Join" : [ "", [ { "Ref" : "LambdaFunctionNamePrefix" }, "revoke" ] ] } } ] },
+                  "passthroughBehavior": "when_no_match",
+                  "httpMethod": "POST",
+                  "type": "aws_proxy"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "LambdaInvokePermissionInitiate": {
+      "Type": "AWS::Lambda::Permission",
+      "Properties": {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": {
+          "Fn::GetAtt": [ "InitiateLambdaFunction", "Arn" ]
+        },
+        "Principal": "apigateway.amazonaws.com",
+        "SourceArn": { "Fn::Sub": [ "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGatewayRestApi}/*/*/*", {} ] }
+      }
+    },
+    "LambdaInvokePermissionConfirm": {
+      "Type": "AWS::Lambda::Permission",
+      "Properties": {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": {
+          "Fn::GetAtt": [ "ConfirmLambdaFunction", "Arn" ]
+        },
+        "Principal": "apigateway.amazonaws.com",
+        "SourceArn": { "Fn::Sub": [ "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGatewayRestApi}/*/*/*", {} ] }
+      }
+    },
+    "LambdaInvokePermissionRevoke": {
+      "Type": "AWS::Lambda::Permission",
+      "Properties": {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": {
+          "Fn::GetAtt": [ "RevokeLambdaFunction", "Arn" ]
+        },
+        "Principal": "apigateway.amazonaws.com",
+        "SourceArn": { "Fn::Sub": [ "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGatewayRestApi}/*/*/*", {} ] }
+      }
+    },
+    "TicketTable": {
+      "Type": "AWS::DynamoDB::Table",
+      "Properties": {
+        "TableName": "Email-DoubleOptIn",
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "userId",
+            "AttributeType": "S"
+          }
+        ],
+        "KeySchema": [
+          {
+            "AttributeName": "userId",
+            "KeyType": "HASH"
+          }
+        ],
+        "TimeToLiveSpecification": {
+          "AttributeName": "expirationTimeTTL",
+          "Enabled": true
+        },
+        "ProvisionedThroughput": {
+          "ReadCapacityUnits": 1,
+          "WriteCapacityUnits": 1
+        }
+      }
+    },
+    "Deployment": {
+      "Type": "AWS::ApiGateway::Deployment",
+      "Properties": {
+        "RestApiId": { "Ref": "ApiGatewayRestApi" },
+        "StageName": "prod"
+      }
+    }
+  },
+  "Outputs": {
+  }
+}

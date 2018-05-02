@@ -1,0 +1,126 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Metadata" : {
+    "ProposedStackName": "double-opt-in-role",
+    "RequiredOrderForStackCreation": [ "role.json", "ses.json", "lambda.json" ]
+  },
+  "Parameters": {
+    "RoleNamePrefix": {
+      "Type": "String",
+      "Default": "",
+      "Description": "Prefix for Role names"
+    },
+    "RolePath": {
+      "Type": "String",
+      "Default": "/Mailcampaign/",
+      "Description": "Prefix for Role names"
+    },
+    "AuditTrailS3BucketName": {
+      "Type": "String",
+      "Default": "",
+      "Description": "S3 bucket name for audit trail"
+    },
+    "AuditTrailS3Prefix": {
+      "Type": "String",
+      "Default": "trails/double-opt-in/",
+      "Description": "S3 prefix for audit trail"
+    },
+  },
+  "Resources": {
+    "IamRoleLambdaExecution": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "lambda.amazonaws.com"
+                ]
+              },
+              "Action": [
+                "sts:AssumeRole"
+              ]
+            }
+          ]
+        },
+        "ManagedPolicyArns": [
+          "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        ],
+        "Policies": [
+          {
+            "PolicyName": "DoubleOptIn",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "ses:SendTemplatedEmail"
+                  ],
+                  "Resource": "*"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "s3:ListBucket"
+                  ],
+                  "Resource": [
+                    { "Fn::Join": [ "", [ "arn:aws:s3:::", { "Ref": "AuditTrailS3BucketName" } ] ] }
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "s3:GetObject",
+                    "s3:PutObject",
+                    "s3:HeadObject",
+                    "s3:DeleteObject"
+                  ],
+                  "Resource": [
+                    { "Fn::Join": [ "", [ "arn:aws:s3:::", { "Ref": "AuditTrailS3BucketName" }, "/", { "Ref": "AuditTrailS3Prefix" }, "*" ] ] }
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "ssm:GetParameter",
+                    "ssm:GetParameters"
+                  ],
+                  "Resource": [
+                    "*"
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "dynamodb:DescribeTable",
+                    "dynamodb:Query",
+                    "dynamodb:Scan",
+                    "dynamodb:GetItem",
+                    "dynamodb:PutItem",
+                    "dynamodb:UpdateItem",
+                    "dynamodb:DeleteItem"
+                  ],
+                  "Resource": [
+                    { "Fn::Sub": "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/Email-DoubleOptIn" }
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "Path": { "Ref": "RolePath" },
+        "RoleName": { "Fn::Join": [ "", [ { "Ref": "RoleNamePrefix" } ,"DoubleOptIn-", { "Ref": "AWS::Region" } ] ] }
+      }
+    }
+  },
+  "Outputs": {
+    "LambdaRoleArn" : {
+      "Description" : "Lambda role ARN (use this for the lambda functions)",
+      "Value": { "Fn::GetAtt": ["IamRoleLambdaExecution", "Arn" ] }
+    }
+  }
+}
