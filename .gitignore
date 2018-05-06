@@ -62,3 +62,6 @@ typings/
 
 doc/
 
+functions.zip
+git-commit.json
+.DS_Store
