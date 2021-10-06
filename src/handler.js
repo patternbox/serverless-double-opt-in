@@ -5,7 +5,7 @@ const crypto = require('crypto');
 
 const s3  = new aws.S3();
 const ssm = new aws.SSM();
-const ses = new aws.SES({region: 'eu-west-1'});
+const ses = new aws.SES();
 const doc = new aws.DynamoDB.DocumentClient();
 
 const INACTIVE_REC_TTL_DAYS = 14;
@@ -17,13 +17,13 @@ const ACTIVE_REC_TTL_DAYS = 99 * 365;
 function response(statusCode, message) {
    return {
       statusCode: statusCode,
-      body: JSON.stringify({ message: message, }),
+      body: JSON.stringify({ message: message }),
    };
 }
 
 function docParams(data) {
    return {
-      TableName : 'Email-DoubleOptIn',
+      TableName : process.env.ddbTable,
       Key : {
          userId: data.userId,
       },
@@ -69,7 +69,7 @@ async function writeAuditTrail(data, action) {
 async function sendConfirmationEmail(data) {
 
    const templateData = {
-      confirmationURL: 'https://' + process.env.basePath + '/confirmDoubleOptIn/' + data.userId + '/' + data.confirmToken,
+      confirmationURL: 'https://' + process.env.hostName + '/confirmDoubleOptIn/' + data.userId + '/' + data.confirmToken,
    };
 
    const params = {
@@ -98,7 +98,7 @@ async function putOptInRecord(data) {
    };
 
    const params = {
-      TableName : 'Email-DoubleOptIn',
+      TableName : process.env.ddbTable,
       Item : rec,
       ConditionExpression: 'attribute_not_exists(userId)',
    };
@@ -126,14 +126,16 @@ async function updateOptInRecord(data) {
    }
 
    const params = docParams(data);
-   params.ConditionExpression = 'confirmToken = :token';
-   params.UpdateExpression = 'SET doubleOptInActive = :active, expirationTimeTTL = :ttl, revokeToken = :token';
+   params.ConditionExpression = 'confirmToken = :confirmToken';
+   params.UpdateExpression = 'SET doubleOptInActive = :active, expirationTimeTTL = :ttl, revokeToken = :revokeToken';
    params.ExpressionAttributeValues = {
       ':active': true,
       ':ttl': Math.floor(Date.now() / 1000) + (ACTIVE_REC_TTL_DAYS * 24 * 60 * 60),
-      ':token': crypto.randomBytes(16).toString('hex')
+      ':confirmToken': data.confirmToken,
+      ':revokeToken': crypto.randomBytes(16).toString('hex')
    };
 
+   //console.log(JSON.stringify(params));
    try {
       await doc.update(params).promise();
       return response(202, 'Record updated.');
@@ -179,6 +181,7 @@ async function removeOptInRecord(data) {
  */
 exports.initiate = async (event, context, callback) => {
 
+   // console.log(JSON.stringify(event));
    const email = JSON.parse(event.body).email;
 
    const data = {
@@ -203,10 +206,11 @@ exports.initiate = async (event, context, callback) => {
  */
 exports.confirm = async (event, context, callback) => {
 
+   //console.log(JSON.stringify(event));
    const data = {
       userId: event.pathParameters.userId,
       confirmToken: event.pathParameters.confirmToken,
-      sourceIp: event.requestContext.identity.sourceIp,
+      sourceIp: event.requestContext.http.sourceIp,
    };
 
    await writeAuditTrail(data, 'confirmDoubleOptIn');

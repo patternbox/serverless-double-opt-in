@@ -1,14 +1,23 @@
+# https://www.serverless.com/framework/docs/providers/aws/guide/serverless.yml
 service: double-opt-in
 
 custom:
   domain: patternbox.com
-  s3bucket: double-opt-in.${self:custom.domain}
+  s3bucket: ${self:provider.deploymentPrefix}-${self:service}.${self:custom.domain}
+  ddbTable: ${self:provider.deploymentPrefix}-${self:service}-email
+  functionPrefix: ${self:provider.deploymentPrefix}-${self:service}
 
 provider:
   name: aws
-  runtime: nodejs8.10
-  region: eu-central-1
-  stage: dev
+  stage: sandbox
+  runtime: nodejs12.x
+  region: ${env:AWS_MAIN_REGION}
+  profile: ${env:AWS_PROFILE_INFRA}
+  stackName: ${self:provider.stage}-${self:service}
+  endpointType: regional
+  deploymentBucket: ${env:INFRA_MAIN_BUCKET}
+  deploymentPrefix: sandbox
+  lambdaHashingVersion: 20201221
 
   iamRoleStatements: # permissions for all of your functions can be set here
     - Effect: Allow
@@ -51,44 +60,52 @@ provider:
         - dynamodb:UpdateItem
         - dynamodb:DeleteItem
       Resource:
-        - arn:aws:dynamodb:${self:provider.region}:*:table/Email-DoubleOptIn
+        - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.ddbTable}
 
   environment:
     s3bucket: ${self:custom.s3bucket}
-    basePath: doi.${self:custom.domain}
+    ddbTable: ${self:custom.ddbTable}
+    #basePath: doi.${self:custom.domain}
     emailSource: no-reply@${self:custom.domain}
     ssmSecret: ${self:service}-secret
+    hostName:
+      Fn::Join:
+        - ""
+        - - Ref: "HttpApi"
+          - ".execute-api."
+          - ${self:provider.region}
+          - ".amazonaws.com"
 
 package:
   individually: false
-  include:
+  excludeDevDependencies: true
+  patterns:
+    - "!**"
     - "src/**"
-  exclude:
-    - "**"
 
 functions:
   initiate:
     handler: src/handler.initiate
-    name: ${self:service}-initiate
+    name: ${self:custom.functionPrefix}-initiate
     events:
-      - http:
-          path: initiateDoubleOptIn
+      - httpApi:
+          path: /initiateDoubleOptIn
           method: post
 
   confirm:
     handler: src/handler.confirm
-    name: ${self:service}-confirm
+    name: ${self:custom.functionPrefix}-confirm
     events:
-      - http:
-          path: confirmDoubleOptIn/{userId}/{confirmToken}
+      - httpApi:
+          path: /confirmDoubleOptIn/{userId}/{confirmToken}
           method: get
 
   revoke:
     handler: src/handler.revoke
-    name: ${self:service}-revoke
+    name: ${self:custom.functionPrefix}-revoke
     events:
-      - http:
-          path: revokeDoubleOptIn/{userId}/{revokeToken}
+      - httpApi:
+          path: /revokeDoubleOptIn/{userId}/{revokeToken}
           method: get
 
 resources:
@@ -101,7 +118,7 @@ resources:
     TicketTable:
       Type: AWS::DynamoDB::Table
       Properties:
-        TableName: Email-DoubleOptIn
+        TableName: ${self:custom.ddbTable}
         AttributeDefinitions:
           - AttributeName: userId
             AttributeType: S
@@ -114,4 +131,13 @@ resources:
         ProvisionedThroughput:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1
+
+    # SesTemplate:
+    #   Type: AWS::SES::Template
+    #   Properties:
+    #     Template:
+    #       TemplateName: "double-opt-in"
+    #       SubjectPart: "Double Opt-in"
+    #       TextPart: "<p>By clicking on this link, you confirm your registration for our newsletter:</p><p><a href='{{confirmationURL}}'>Confirmation Link</a></p>"
+    #       HtmlPart: "By clicking on this link, you confirm your registration for our newsletter:\r\n{{confirmationURL}}."
 

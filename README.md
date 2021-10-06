@@ -61,3 +61,6 @@ $ serverless deploy function --function confirm
 $ serverless deploy function --function revoke
 ```
 
+``` bash
+$ curl -X POST -H "Content-Type: application/json" -d "{ \"email\": \"twitter@patternbox.com\" }"  https://qlf1mk0k85.execute-api.eu-central-1.amazonaws.com/initiateDoubleOptIn
+```

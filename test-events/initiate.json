@@ -1,32 +1,35 @@
 {
-   "resource": "/initiateDoubleOptIn",
-   "path": "/initiateDoubleOptIn",
-   "httpMethod": "POST",
-   "queryStringParameters": null,
-   "pathParameters": null,
-   "stageVariables": null,
+   "version": "2.0",
+   "routeKey": "POST /initiateDoubleOptIn",
+   "rawPath": "/initiateDoubleOptIn",
+   "rawQueryString": "",
+   "headers": {
+       "accept": "*/*",
+       "content-length": "37",
+       "content-type": "application/json",
+       "host": "qlf1mk0k85.execute-api.eu-central-1.amazonaws.com",
+       "user-agent": "curl/7.70.0",
+       "x-amzn-trace-id": "Root=1-615c1ca9-0a7b65523afa4f4a7129fe43",
+       "x-forwarded-for": "1.2.3.4",
+       "x-forwarded-port": "443",
+       "x-forwarded-proto": "https"
+   },
    "requestContext": {
-      "resourcePath": "/initiateDoubleOptIn",
-      "httpMethod": "POST",
-      "requestTime": "22/Apr/2018:09:37:13 +0000",
-      "path": "/dev/initiateDoubleOptIn",
-      "protocol": "HTTP/1.1",
-      "stage": "dev",
-      "requestTimeEpoch": 1524389833267,
-      "requestId": "bc9da89b-4610-11e8-abb1-f1a5d104054c",
-      "identity": {
-         "cognitoIdentityPoolId": null,
-         "accountId": null,
-         "cognitoIdentityId": null,
-         "caller": null,
-         "sourceIp": "188.103.199.253",
-         "accessKey": null,
-         "cognitoAuthenticationType": null,
-         "cognitoAuthenticationProvider": null,
-         "userArn": null,
-         "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.117 Safari/537.36",
-         "user": null
-      }
+       "apiId": "qlf1mk0k85",
+       "domainName": "qlf1mk0k85.execute-api.eu-central-1.amazonaws.com",
+       "domainPrefix": "qlf1mk0k85",
+       "http": {
+           "method": "POST",
+           "path": "/initiateDoubleOptIn",
+           "protocol": "HTTP/1.1",
+           "sourceIp": "1.2.3.4",
+           "userAgent": "curl/7.70.0"
+       },
+       "requestId": "Gulqcig9FiAEMSA=",
+       "routeKey": "POST /initiateDoubleOptIn",
+       "stage": "$default",
+       "time": "05/Oct/2021:09:36:41 +0000",
+       "timeEpoch": 1633426601050
    },
    "body": "{ \"email\": \"twitter@patternbox.com\" }",
    "isBase64Encoded": false
